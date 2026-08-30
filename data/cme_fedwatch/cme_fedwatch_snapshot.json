@@ -1,0 +1,10 @@
+{
+  "source": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+  "snapshot_date": "2026-08-30",
+  "snapshot_time": "11:43:17",
+  "timezone": "CT",
+  "current_target_bps": "350-375",
+  "units": "Probability percent",
+  "meetings": 11,
+  "update_method": "Validated manual CSV import from the public CME FedWatch table"
+}

@@ -1,0 +1,86 @@
+{
+  "event_id": "warsh_jackson_hole_20260828",
+  "event_label": "Chair Kevin Warsh \u2014 Jackson Hole keynote",
+  "event_timestamp_et": "2026-08-28T10:00:00-04:00",
+  "event_source": "https://www.kansascityfed.org/newsroom/2026-news-releases/kansas-city-fed-to-host-annual-jackson-hole-economic-policy-symposium-2026/",
+  "requested_trading_dates": [
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-31"
+  ],
+  "complete_across_all_tickers": false,
+  "common_available_trading_dates": [
+    "2026-08-27",
+    "2026-08-28"
+  ],
+  "downloaded_utc": "2026-08-30T22:30:23+00:00",
+  "source": "Yahoo Finance chart endpoint",
+  "source_url_template": "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+  "interval": "1m",
+  "value_field": "close",
+  "timezone_for_analysis": "America/New_York",
+  "missing_values_imputed": false,
+  "coverage": {
+    "ZT=F": {
+      "column": "ZT_F",
+      "source_bars_with_close": 2012,
+      "bars_retained": 2012,
+      "available_trading_dates": [
+        "2026-08-27",
+        "2026-08-28"
+      ],
+      "exchange_timezone": "America/New_York",
+      "instrument_type": "FUTURE"
+    },
+    "ZN=F": {
+      "column": "ZN_F",
+      "source_bars_with_close": 2153,
+      "bars_retained": 2153,
+      "available_trading_dates": [
+        "2026-08-27",
+        "2026-08-28"
+      ],
+      "exchange_timezone": "America/New_York",
+      "instrument_type": "FUTURE"
+    },
+    "ZB=F": {
+      "column": "ZB_F",
+      "source_bars_with_close": 1933,
+      "bars_retained": 1933,
+      "available_trading_dates": [
+        "2026-08-27",
+        "2026-08-28"
+      ],
+      "exchange_timezone": "America/New_York",
+      "instrument_type": "FUTURE"
+    },
+    "^TNX": {
+      "column": "TNX",
+      "source_bars_with_close": 800,
+      "bars_retained": 800,
+      "available_trading_dates": [
+        "2026-08-27",
+        "2026-08-28"
+      ],
+      "exchange_timezone": "America/Chicago",
+      "instrument_type": "INDEX"
+    },
+    "^TYX": {
+      "column": "TYX",
+      "source_bars_with_close": 800,
+      "bars_retained": 800,
+      "available_trading_dates": [
+        "2026-08-27",
+        "2026-08-28"
+      ],
+      "exchange_timezone": "America/Chicago",
+      "instrument_type": "INDEX"
+    }
+  },
+  "notes": [
+    "ZT=F, ZN=F, and ZB=F are futures prices, not cash Treasury yields.",
+    "^TNX and ^TYX are Yahoo Finance 10-year and 30-year yield indices.",
+    "Minute bars are retained only for the previous trading day, event day, and next trading day.",
+    "No interpolation or forward-fill is performed across instruments or sessions."
+  ]
+}
