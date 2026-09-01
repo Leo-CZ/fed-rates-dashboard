@@ -1,8 +1,9 @@
 {
   "source": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
   "snapshot_date": "2026-08-31",
-  "snapshot_time": "06:53:08",
-  "timezone": "CT",
+  "snapshot_time": "07:53:08",
+  "timezone": "ET",
+  "iana_timezone": "America/New_York",
   "current_target_bps": "350-375",
   "units": "Probability percent",
   "meetings": 11,

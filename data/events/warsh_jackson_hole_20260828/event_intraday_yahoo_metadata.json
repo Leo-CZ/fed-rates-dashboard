@@ -14,13 +14,13 @@
     "2026-08-28",
     "2026-08-31"
   ],
-  "downloaded_utc": "2026-08-31T23:51:11+00:00",
-  "update_attempted_utc": "2026-08-31T23:51:11+00:00",
+  "downloaded_utc": "2026-09-01T22:15:40+00:00",
+  "update_attempted_utc": "2026-09-01T22:15:40+00:00",
   "source": "Yahoo Finance chart endpoint",
   "source_url_template": "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
   "interval": "1m",
   "schema": "Long-form ticker-minute OHLC for ^TNX and ^TYX",
-  "timezone_for_analysis": "America/New_York",
+  "timezone_for_analysis": "America/New_York (ET)",
   "update_mode": "Incremental by ticker from the final stored observation",
   "previous_long_csv_migrated": false,
   "existing_nonblank_values_replaced": false,
@@ -37,7 +37,7 @@
   "coverage": {
     "^TNX": {
       "query_start_et": "2026-08-31T15:00:00-04:00",
-      "query_end_et": "2026-08-31T19:51:11.091061-04:00",
+      "query_end_et": "2026-08-31T23:59:59.999999-04:00",
       "request_made": true,
       "bars_added": 0,
       "existing_blank_fields_filled": 0,
@@ -61,7 +61,7 @@
     },
     "^TYX": {
       "query_start_et": "2026-08-31T15:00:00-04:00",
-      "query_end_et": "2026-08-31T19:51:11.091061-04:00",
+      "query_end_et": "2026-08-31T23:59:59.999999-04:00",
       "request_made": true,
       "bars_added": 0,
       "existing_blank_fields_filled": 0,

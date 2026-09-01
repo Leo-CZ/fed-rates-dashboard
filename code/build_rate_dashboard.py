@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
@@ -15,6 +16,7 @@ DATA_DIR = ROOT / "data"
 FRED_DIR = DATA_DIR / "fred"
 RAW = FRED_DIR / "raw"
 CME_DIR = DATA_DIR / "cme_fedwatch"
+SNAPSHOT_PATTERN = re.compile(r"^cme_fedwatch_snapshot_(\d{8})_(\d{6})_ET\.csv$")
 EVENTS_DIR = DATA_DIR / "events"
 INTRADAY_EVENT_DIR = EVENTS_DIR / "warsh_jackson_hole_20260828"
 START_DATE = pd.Timestamp("2019-01-01")
@@ -37,9 +39,21 @@ def load_events() -> list[dict[str, str]]:
 
 
 def load_cme_snapshot() -> tuple[list[dict[str, str]], dict[str, object]]:
-    with (CME_DIR / "cme_fedwatch_snapshot.csv").open(newline="", encoding="utf-8") as handle:
+    snapshots = [
+        path
+        for path in CME_DIR.iterdir()
+        if path.is_file() and SNAPSHOT_PATTERN.fullmatch(path.name)
+    ]
+    if not snapshots:
+        raise FileNotFoundError(f"No timestamped CME FedWatch snapshots found in {CME_DIR}")
+    snapshot_path = max(snapshots, key=lambda path: path.name)
+    metadata_path = snapshot_path.with_suffix(".json")
+    if not metadata_path.is_file():
+        raise FileNotFoundError(f"CME snapshot metadata not found: {metadata_path}")
+    with snapshot_path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
-    metadata = json.loads((CME_DIR / "cme_fedwatch_snapshot.json").read_text(encoding="utf-8"))
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["snapshot_file"] = snapshot_path.name
     return rows, metadata
 
 

@@ -78,7 +78,14 @@ python ./code/download_yahoo_event_data.py
 python ./code/build_rate_dashboard.py
 ```
 
-CME snapshots use a browser-assisted capture from the public [CME FedWatch Tool](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html), followed by validation with `update_cme_fedwatch.py`.
+Update CME FedWatch and rebuild:
+
+```bash
+python ./code/update_cme_fedwatch.py
+python ./code/build_rate_dashboard.py
+```
+
+The updater reads the public [CME FedWatch Tool](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html), validates the complete probability table, converts CME's published timestamp to Eastern Time (`ET`), and saves one timestamped snapshot per ET data date. If that date already has a snapshot, it asks whether to overwrite it using `yes`, `no`, or `cancel`.
 
 ## Disclaimer
 

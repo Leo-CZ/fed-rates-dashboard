@@ -392,7 +392,7 @@ def build() -> None:
         "source_url_template": "https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
         "interval": "1m",
         "schema": "Long-form ticker-minute OHLC for ^TNX and ^TYX",
-        "timezone_for_analysis": "America/New_York",
+        "timezone_for_analysis": "America/New_York (ET)",
         "update_mode": "Incremental by ticker from the final stored observation",
         "previous_long_csv_migrated": migrated_previous_schema,
         "existing_nonblank_values_replaced": False,

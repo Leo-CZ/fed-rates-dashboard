@@ -1,8 +1,8 @@
 {
   "requested_start_date": "2019-01-01",
   "first_available_date": "2019-01-02",
-  "last_available_date": "2026-08-31",
-  "generated_utc": "2026-09-01T00:06:33+00:00",
+  "last_available_date": "2026-09-01",
+  "generated_utc": "2026-09-01T22:10:21+00:00",
   "raw_series": [
     "DGS2",
     "DGS10",
@@ -14,12 +14,15 @@
   "missing_values_imputed": false,
   "cme_fedwatch_snapshot": {
     "source": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
-    "snapshot_date": "2026-08-31",
-    "snapshot_time": "06:53:08",
-    "timezone": "CT",
+    "snapshot_date": "2026-09-01",
+    "snapshot_time": "05:57:35",
+    "timezone": "ET",
+    "iana_timezone": "America/New_York",
     "current_target_bps": "350-375",
     "units": "Probability percent",
     "meetings": 11,
-    "update_method": "Validated browser-assisted extraction from the public CME FedWatch table"
+    "update_method": "Automated browser-session extraction from the public CME FedWatch table",
+    "retrieved_at_utc": "2026-09-01T22:09:12+00:00",
+    "snapshot_file": "cme_fedwatch_snapshot_20260901_055735_ET.csv"
   }
 }

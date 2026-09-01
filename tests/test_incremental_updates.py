@@ -78,6 +78,78 @@ class CmePathTests(unittest.TestCase):
         relative = Path("data/cme_fedwatch/cme_fedwatch_snapshot.csv")
         self.assertEqual(module.resolve_input_path(relative), (ROOT / relative).resolve())
 
+    def test_extracts_cme_timestamp_target_and_all_meeting_probabilities(self) -> None:
+        module = load_module("update_cme_fedwatch_extract_test", "update_cme_fedwatch.py")
+        current_html = """
+        <form action="./QuikStrikeView.aspx"><input type="hidden" name="__VIEWSTATE" value="state"></form>
+        <p>Current target rate is 350-375</p>
+        <table><tr><td>* Data as of 1 Sep 2026 04:32:30 CT</td></tr></table>
+        """
+        probability_html = """
+        <table class="grid-thm">
+          <tr><th></th><th colspan="3">CME FedWatch Tool - Conditional Meeting Probabilities</th></tr>
+          <tr><th>Meeting Date</th><th>350-375</th><th>375-400</th><th>400-425</th></tr>
+          <tr><td>9/16/2026</td><td>32.0%</td><td>68.0%</td><td></td></tr>
+          <tr><td>10/28/2026</td><td>22.1%</td><td>56.8%</td><td>21.1%</td></tr>
+        </table>
+        """
+
+        snapshot, current_target = module.extract_snapshot_details(current_html)
+        headers, rows = module.extract_probability_table(probability_html, current_target)
+
+        self.assertEqual(module.snapshot_stem(snapshot), "cme_fedwatch_snapshot_20260901_053230_ET")
+        self.assertEqual(current_target, "350-375")
+        self.assertEqual(headers, ["Meeting Date", "350-375", "375-400", "400-425"])
+        self.assertEqual(rows[0]["375-400"], "68.0")
+        self.assertEqual(rows[1]["400-425"], "21.1")
+
+        winter_html = """
+        <p>Current target rate is 350-375</p>
+        <table><tr><td>* Data as of 15 Jan 2027 04:32:30 CT</td></tr></table>
+        """
+        winter_snapshot, _ = module.extract_snapshot_details(winter_html)
+        self.assertEqual(winter_snapshot.tzname(), "EST")
+        self.assertEqual(
+            module.snapshot_stem(winter_snapshot),
+            "cme_fedwatch_snapshot_20270115_053230_ET",
+        )
+
+    def test_daily_snapshot_prompt_supports_yes_no_and_cancel(self) -> None:
+        module = load_module("update_cme_fedwatch_prompt_test", "update_cme_fedwatch.py")
+        existing = [
+            ROOT
+            / "data"
+            / "cme_fedwatch"
+            / "cme_fedwatch_snapshot_20260901_043230_ET.csv"
+        ]
+        for answer, expected in (("yes", "yes"), ("n", "no"), ("cancel", "cancel")):
+            self.assertEqual(
+                module.overwrite_decision(existing, "ask", lambda _prompt, value=answer: value),
+                expected,
+            )
+
+    def test_install_keeps_only_one_timestamped_snapshot_per_cme_date(self) -> None:
+        module = load_module("update_cme_fedwatch_install_test", "update_cme_fedwatch.py")
+        headers = ["Meeting Date", "350-375", "375-400"]
+        first_rows = [{"Meeting Date": "9/16/2026", "350-375": "34.6", "375-400": "65.4"}]
+        second_rows = [{"Meeting Date": "9/16/2026", "350-375": "32.0", "375-400": "68.0"}]
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            first = datetime(2026, 9, 1, 4, 0, tzinfo=module.EASTERN)
+            second = datetime(2026, 9, 1, 4, 32, 30, tzinfo=module.EASTERN)
+            module.install_snapshot(first, "350-375", headers, first_rows, directory=directory)
+            csv_path, metadata_path = module.install_snapshot(
+                second, "350-375", headers, second_rows, directory=directory
+            )
+
+            self.assertEqual(csv_path.name, "cme_fedwatch_snapshot_20260901_043230_ET.csv")
+            self.assertEqual(metadata_path.name, "cme_fedwatch_snapshot_20260901_043230_ET.json")
+            self.assertEqual(
+                [path.name for path in directory.glob("cme_fedwatch_snapshot_*.csv")],
+                ["cme_fedwatch_snapshot_20260901_043230_ET.csv"],
+            )
+            self.assertIn("68.0", csv_path.read_text(encoding="utf-8"))
+
 
 class FredIncrementalTests(unittest.TestCase):
     def test_first_run_creates_file_in_path_with_spaces(self) -> None:
