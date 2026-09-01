@@ -3,10 +3,10 @@
 The dashboard presents
 - U.S. Treasury rate data for 2y/10y/30y from Federal Reserve Bank of St. Louis ([FRED](https://fred.stlouisfed.org/)), including
   - nominal rates
-  - curve speards
+  - curve spreads
   - breakeven rates and implied real rates
 - A possible major event like FOMC/Key Speeches/Pivot events
-  - the minute level yield rates for 10y/30y from Yahop finance
+  - the minute level yield rates for 10y/30y from Yahoo Finance
 - A snapshot of CME FedWatch probability table
 
 ## FRED download links
@@ -58,60 +58,28 @@ Open [`rate_dashboard.html`](rate_dashboard.html) in a browser. The dashboard pr
 
 ## Updating the data
 
-Run the commands below from the repository root. The scripts derive every data path relative to their own locations; no machine-specific folder configuration is required.
+Python 3.10 or newer is required. Use `python3` instead of `python` where needed. Install dependencies once:
 
-Requirements:
-
-- Python 3.10 or newer.
-- PowerShell 7 or newer for the FRED refresh script.
-- The `curl` command-line application for bounded FRED downloads.
-- Internet access for FRED and Yahoo updates.
-
-Install the Python dependency once:
-
-```powershell
+```bash
 python -m pip install -r requirements.txt
 ```
 
-### 1. Update FRED Treasury and inflation data
+Update FRED data and rebuild the dashboard:
 
-```powershell
-pwsh -File ./code/refresh_rate_data.ps1
+```bash
+python ./code/refresh_fred_data.py
 python ./code/build_rate_dashboard.py
 ```
 
-- On the first run, the refresh downloads DGS2, DGS10, DGS30, T10YIE, DFII10, and DFII30 beginning on `2019-01-01`.
-- On later runs, each series is requested independently beginning one calendar day after its final stored row.
+Update Yahoo event data and rebuild:
 
-### 2. Update CME FedWatch probabilities
-
-There is no credential-free supported CME API used by this repository. CME offers an official subscription [FedWatch API](https://www.cmegroup.com/market-data/market-data-api/fedwatch-api.html); this repository instead updates the snapshot from the public [CME FedWatch Tool](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html) as follows:
-
-```powershell
-python ./code/update_cme_fedwatch.py `
-  --input ./data/cme_fedwatch/fedwatch_export.csv `
-  --current-target 350-375 `
-  --snapshot-time "2026-08-31T06:53:08-05:00" `
-  --acquisition-method browser_assisted
-python ./code/build_rate_dashboard.py
-```
-
-### 3. Update Yahoo one-minute event data
-
-```powershell
+```bash
 python ./code/download_yahoo_event_data.py
 python ./code/build_rate_dashboard.py
 ```
 
-The downloader retains UTC source time, supplies the corresponding Eastern Time timestamp and session date, and never fills missing minutes.
+CME snapshots use a browser-assisted capture from the public [CME FedWatch Tool](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html), followed by validation with `update_cme_fedwatch.py`.
 
-### Rebuild without downloading
-
-If the raw inputs are already current, rebuild all derived files and the dashboard with:
-
-```powershell
-python ./code/build_rate_dashboard.py
-```
 ## Disclaimer
 
 This repository is provided for educational, record-keeping, and research purposes only. It does not provide investment, trading, tax, legal, or financial advice and does not constitute a recommendation or solicitation to buy or sell any security, futures contract, or other financial instrument.

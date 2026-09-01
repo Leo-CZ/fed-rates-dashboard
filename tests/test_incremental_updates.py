@@ -5,7 +5,7 @@ import importlib.util
 import json
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -77,6 +77,135 @@ class CmePathTests(unittest.TestCase):
         module = load_module("update_cme_fedwatch_test", "update_cme_fedwatch.py")
         relative = Path("data/cme_fedwatch/cme_fedwatch_snapshot.csv")
         self.assertEqual(module.resolve_input_path(relative), (ROOT / relative).resolve())
+
+
+class FredIncrementalTests(unittest.TestCase):
+    def test_first_run_creates_file_in_path_with_spaces(self) -> None:
+        module = load_module("refresh_fred_first_run_test", "refresh_fred_data.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            raw_dir = Path(temporary) / "nested raw data"
+            payload = b"observation_date,DFII30\n2019-01-01,.\n2019-01-02,1.02\n"
+            added = module.refresh_series("DFII30", raw_dir, lambda _: payload)
+            self.assertEqual(added, 2)
+            self.assertEqual(
+                module.read_stored_rows(raw_dir / "DFII30.csv", "DFII30"),
+                [("2019-01-01", "."), ("2019-01-02", "1.02")],
+            )
+
+    def test_incremental_append_and_no_op_preserve_existing_bytes(self) -> None:
+        module = load_module("refresh_fred_data_test", "refresh_fred_data.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            raw_dir = Path(temporary)
+            destination = raw_dir / "DGS2.csv"
+            original = b"observation_date,DGS2\n2026-08-27,4.20\n2026-08-28,4.34\n"
+            destination.write_bytes(original)
+            requested_urls: list[str] = []
+
+            def append_fetch(url: str) -> bytes:
+                requested_urls.append(url)
+                return b"observation_date,DGS2\n2026-08-31,4.30\n"
+
+            added = module.refresh_series("DGS2", raw_dir, append_fetch)
+            self.assertEqual(added, 1)
+            self.assertIn("cosd=2026-08-29", requested_urls[0])
+            self.assertTrue(destination.read_bytes().startswith(original))
+            self.assertEqual(
+                module.read_stored_rows(destination, "DGS2")[-1], ("2026-08-31", "4.30")
+            )
+
+            before_no_op = destination.read_bytes()
+            added = module.refresh_series(
+                "DGS2", raw_dir, lambda _: b"observation_date,DGS2\n"
+            )
+            self.assertEqual(added, 0)
+            self.assertEqual(destination.read_bytes(), before_no_op)
+
+    def test_invalid_download_does_not_change_stored_file(self) -> None:
+        module = load_module("refresh_fred_validation_test", "refresh_fred_data.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            raw_dir = Path(temporary)
+            destination = raw_dir / "DGS10.csv"
+            original = b"observation_date,DGS10\n2026-08-28,4.73\n"
+            destination.write_bytes(original)
+            duplicate_payload = (
+                b"observation_date,DGS10\n2026-08-31,4.70\n2026-08-31,4.71\n"
+            )
+            with self.assertRaisesRegex(ValueError, "Duplicate dates"):
+                module.refresh_series("DGS10", raw_dir, lambda _: duplicate_payload)
+            self.assertEqual(destination.read_bytes(), original)
+
+    def test_malformed_header_and_out_of_order_dates_are_rejected(self) -> None:
+        module = load_module("refresh_fred_structure_test", "refresh_fred_data.py")
+        with self.assertRaisesRegex(ValueError, "Unexpected CSV header"):
+            module.parse_csv_text("date,DGS2\n2026-08-31,4.30\n", "DGS2", "fixture")
+        with self.assertRaisesRegex(ValueError, "not ordered"):
+            module.parse_csv_text(
+                "observation_date,DGS2\n2026-08-31,4.30\n2026-08-28,4.34\n",
+                "DGS2",
+                "fixture",
+            )
+
+    def test_rate_values_allow_numeric_and_missing_markers_only(self) -> None:
+        module = load_module("refresh_fred_values_test", "refresh_fred_data.py")
+        accepted = "observation_date,DGS2\n2026-08-27,.\n2026-08-28,\n2026-08-31,-0.25\n"
+        self.assertEqual(len(module.parse_csv_text(accepted, "DGS2", "fixture")), 3)
+        for invalid in ("not-a-rate", "NaN", "Infinity"):
+            with self.subTest(invalid=invalid), self.assertRaisesRegex(
+                ValueError, "rate value"
+            ):
+                module.parse_csv_text(
+                    f"observation_date,DGS2\n2026-08-31,{invalid}\n", "DGS2", "fixture"
+                )
+
+    def test_retry_exhaustion_preserves_stored_file(self) -> None:
+        module = load_module("refresh_fred_retry_test", "refresh_fred_data.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            raw_dir = Path(temporary)
+            destination = raw_dir / "DGS30.csv"
+            original = b"observation_date,DGS30\n2026-08-28,5.22\n"
+            destination.write_bytes(original)
+            attempts = 0
+
+            def failing_fetch(_: str) -> bytes:
+                nonlocal attempts
+                attempts += 1
+                raise TimeoutError("fixture timeout")
+
+            with patch.object(module.time, "sleep"), self.assertRaisesRegex(
+                RuntimeError, "after 3 attempts"
+            ):
+                module.refresh_series("DGS30", raw_dir, failing_fetch)
+            self.assertEqual(attempts, 3)
+            self.assertEqual(destination.read_bytes(), original)
+
+    def test_expired_total_deadline_is_rejected(self) -> None:
+        module = load_module("refresh_fred_deadline_test", "refresh_fred_data.py")
+
+        class NeverReady:
+            def poll(self, _: float) -> bool:
+                return False
+
+        class FakeProcess:
+            def __init__(self) -> None:
+                self.terminated = False
+
+            def terminate(self) -> None:
+                self.terminated = True
+
+            def join(self, _: float) -> None:
+                pass
+
+        process = FakeProcess()
+        with self.assertRaisesRegex(TimeoutError, "total deadline"):
+            module.receive_download_result(NeverReady(), process, 0.01)
+        self.assertTrue(process.terminated)
+
+    def test_url_uses_requested_series_and_start_date(self) -> None:
+        module = load_module("refresh_fred_url_test", "refresh_fred_data.py")
+        self.assertEqual(
+            module.fred_url("DGS30", date(2026, 8, 29)),
+            "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DGS30&cosd=2026-08-29",
+        )
 
 
 class YahooIncrementalTests(unittest.TestCase):
