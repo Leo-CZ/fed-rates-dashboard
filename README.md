@@ -68,20 +68,23 @@ Update FRED data and rebuild the dashboard:
 
 ```bash
 python ./code/refresh_fred_data.py
-python ./code/build_rate_dashboard.py
 ```
 
 Update Yahoo event data and rebuild:
 
 ```bash
 python ./code/download_yahoo_event_data.py
-python ./code/build_rate_dashboard.py
 ```
 
 Update CME FedWatch and rebuild:
 
 ```bash
 python ./code/update_cme_fedwatch.py
+```
+
+Rebuild the dashboard based on the refreshed data:
+
+```bash
 python ./code/build_rate_dashboard.py
 ```
 
