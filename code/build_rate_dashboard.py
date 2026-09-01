@@ -50,14 +50,31 @@ def load_intraday_event() -> tuple[list[dict[str, object]], dict[str, object]]:
         return [], {}
 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    numeric_columns = ["ZT_F", "ZN_F", "ZB_F", "TNX", "TYX"]
+    expected_columns = [
+        "timestamp_utc",
+        "timestamp_et",
+        "session_date_et",
+        "ticker",
+        "open",
+        "high",
+        "low",
+        "close",
+    ]
+    numeric_columns = ["open", "high", "low", "close"]
     rows: list[dict[str, object]] = []
     with data_path.open(newline="", encoding="utf-8") as handle:
-        for source_row in csv.DictReader(handle):
+        reader = csv.DictReader(handle)
+        if reader.fieldnames != expected_columns:
+            raise ValueError(
+                f"Unexpected Yahoo event columns in {data_path}: {reader.fieldnames}. "
+                "Run the Yahoo event-data updater to migrate the yield-only OHLC schema."
+            )
+        for source_row in reader:
             row: dict[str, object] = {
                 "timestamp_utc": source_row["timestamp_utc"],
                 "timestamp_et": source_row["timestamp_et"],
                 "session_date_et": source_row["session_date_et"],
+                "ticker": source_row["ticker"],
             }
             for column in numeric_columns:
                 value = source_row.get(column, "")
@@ -307,6 +324,9 @@ def make_html(
       --event-fomc: light-dark(#6a4c93, #bd9bea);
       --event-minutes: light-dark(#68737e, #9da8b3);
       --highlight: light-dark(#fff1bd, #493d18);
+      --candle-up: light-dark(#18794e, #55c792);
+      --candle-down: light-dark(#b4233c, #f06f83);
+      --candle-doji: light-dark(#58636f, #aab4bf);
     }}
     * {{ box-sizing: border-box; }}
     body {{ margin: 0; background: var(--bg); color: var(--fg); font-family: Inter, ui-sans-serif, system-ui, sans-serif; }}
@@ -358,6 +378,14 @@ def make_html(
     .event-label {{ fill: var(--event); font-size: 11px; }}
     .intraday-event-line {{ stroke: var(--event); stroke-width: 1.6; stroke-dasharray: 5 3; }}
     .intraday-event-label {{ fill: var(--event); font-size: 11px; }}
+    .candle-wick {{ stroke-width: 1; shape-rendering: crispEdges; }}
+    .candle-body {{ stroke-width: 1; shape-rendering: crispEdges; }}
+    .candle-up {{ fill: var(--candle-up); stroke: var(--candle-up); }}
+    .candle-down {{ fill: var(--candle-down); stroke: var(--candle-down); }}
+    .candle-doji {{ fill: var(--candle-doji); stroke: var(--candle-doji); }}
+    .candle-key {{ display: flex; gap: 16px; margin: 8px 0 2px; color: var(--muted); font-size: .84rem; }}
+    .candle-key span {{ display: inline-flex; align-items: center; gap: 6px; }}
+    .candle-key i {{ width: 11px; height: 11px; display: inline-block; }}
     .hover-guide {{ stroke: var(--fg); stroke-width: 1; stroke-opacity: .45; pointer-events: none; }}
     .hover-dot {{ stroke: var(--bg); stroke-width: 1.5; pointer-events: none; }}
     .overlay {{ fill: transparent; cursor: grab; touch-action: pan-y; }}
@@ -454,7 +482,7 @@ def make_html(
 
   <section id="intraday-event-study">
     <h2>Intraday event study — Warsh at Jackson Hole</h2>
-    <p>One-minute Yahoo Finance closes around Chair Kevin Warsh’s August 28, 2026 keynote at 10:00 a.m. ET. The requested window is the previous trading day, event day, and next trading day.</p>
+    <p>One-minute Yahoo Finance OHLC yields around Chair Kevin Warsh’s August 28, 2026 keynote at 10:00 a.m. ET. Candle bodies show open-to-close and wicks show low-to-high. The requested window is the previous trading day, event day, and next trading day.</p>
     <p class="{intraday_status_class}">{escape(intraday_available)} Snapshot downloaded {escape(intraday_downloaded)}.</p>
     <div class="intraday-controls" aria-label="Intraday event range">
       <span>View:</span>
@@ -465,22 +493,22 @@ def make_html(
       <button id="intraday-zoom-out" type="button">Zoom out</button>
     </div>
 
-    <h3>Treasury futures prices</h3>
-    <p>2Y, 10Y, and 30Y futures prices. These are futures—not cash Treasury yields.</p>
-    <div id="legend-intraday-futures" class="legend" aria-label="Intraday Treasury futures series"></div>
-    <div id="chart-intraday-futures" class="chart-shell intraday-shell" role="img" aria-label="Interactive chart of one-minute 2-year, 10-year, and 30-year Treasury futures prices"><div class="tooltip" role="tooltip"></div></div>
+    <div class="candle-key" aria-label="Candlestick direction key"><span><i class="candle-up"></i>Close &gt; open</span><span><i class="candle-down"></i>Close &lt; open</span><span><i class="candle-doji"></i>Close = open</span></div>
 
-    <h3>10Y and 30Y Treasury yields</h3>
-    <p>Yahoo Finance yield indices ^TNX and ^TYX. Missing overnight minutes remain missing.</p>
-    <div id="legend-intraday-yields" class="legend" aria-label="Intraday Treasury yield series"></div>
-    <div id="chart-intraday-yields" class="chart-shell intraday-shell" role="img" aria-label="Interactive chart of one-minute 10-year and 30-year Treasury yields"><div class="tooltip" role="tooltip"></div></div>
+    <h3>10Y Treasury yield — ^TNX</h3>
+    <p>One-minute OHLC candlesticks. Yahoo reports only zero volume for this yield index, so volume is intentionally omitted.</p>
+    <div id="chart-intraday-10y" class="chart-shell intraday-shell" role="img" aria-label="Interactive one-minute candlestick chart of the 10-year Treasury yield"><div class="tooltip" role="tooltip"></div></div>
+
+    <h3>30Y Treasury yield — ^TYX</h3>
+    <p>One-minute OHLC candlesticks. Yahoo reports only zero volume for this yield index, so volume is intentionally omitted.</p>
+    <div id="chart-intraday-30y" class="chart-shell intraday-shell" role="img" aria-label="Interactive one-minute candlestick chart of the 30-year Treasury yield"><div class="tooltip" role="tooltip"></div></div>
   </section>
 
   <section>
     <h2>CME FedWatch probabilities — snapshot {snapshot_title}</h2>
-    <p>Market-implied probabilities by FOMC meeting and target range. Current target: {escape(str(cme_metadata['current_target_bps']))} bps.</p>
+    <p>Market-implied probabilities by FOMC meeting and target range. Current target: {escape(str(cme_metadata['current_target_bps']))} bps. Verify this snapshot at the <a href="{escape(str(cme_metadata['source']))}">CME FedWatch Tool</a>.</p>
     {fedwatch_table}
-    <p class="fedwatch-note">Probabilities are a point-in-time CME snapshot, not a forecast by the Federal Reserve. A dash means the CME source cell was blank; it has not been imputed. Source: <a href="{escape(str(cme_metadata['source']))}">CME FedWatch Tool</a>.</p>
+    <p class="fedwatch-note">Probabilities are a point-in-time CME snapshot, not a forecast by the Federal Reserve. A dash means the CME source cell was blank; it has not been imputed.</p>
   </section>
 
   <footer>
@@ -805,49 +833,30 @@ function initializeIntradayCharts() {{
   }}
 
   const intradayData = RAW_INTRADAY_DATA.map(d => ({{...d, time:new Date(d.timestamp_utc)}}));
+  const yieldData = intradayData.filter(d => d.ticker === '^TNX' || d.ticker === '^TYX');
+  if (!yieldData.length) {{
+    document.querySelector('#intraday-event-study .error')?.insertAdjacentText('beforeend', ' No ^TNX or ^TYX OHLC observations are available.');
+    return;
+  }}
   const eventTime = new Date(INTRADAY_META.event_timestamp_et);
   const eventDateText = INTRADAY_META.event_timestamp_et.slice(0, 10);
   const eventOffset = INTRADAY_META.event_timestamp_et.slice(-6);
   const eventDayStart = new Date(`${{eventDateText}}T00:00:00${{eventOffset}}`);
   const eventDayEnd = new Date(`${{eventDateText}}T23:59:59${{eventOffset}}`);
-  const intradayMin = d3.min(intradayData, d => d.time);
-  const intradayMax = d3.max(intradayData, d => d.time);
+  const intradayMin = d3.min(yieldData, d => d.time);
+  const intradayMax = d3.max(yieldData, d => d.time);
   let intradayStart = eventDayStart < intradayMin ? intradayMin : eventDayStart;
   let intradayEnd = eventDayEnd > intradayMax ? intradayMax : eventDayEnd;
   let activeIntradayRange = 'day';
 
   const intradayCharts = [
     {{
-      id:'chart-intraday-futures', legend:'legend-intraday-futures', yTitle:'Futures price', decimals:4, suffix:'',
-      series:[
-        {{key:'ZT_F', label:'2Y futures · ZT=F', color:'var(--series-1)'}},
-        {{key:'ZN_F', label:'10Y futures · ZN=F', color:'var(--series-2)'}},
-        {{key:'ZB_F', label:'30Y futures · ZB=F', color:'var(--series-3)'}}
-      ]
+      id:'chart-intraday-10y', ticker:'^TNX', label:'10Y yield', yTitle:'10Y yield (%)'
     }},
     {{
-      id:'chart-intraday-yields', legend:'legend-intraday-yields', yTitle:'Yield (%)', decimals:3, suffix:'%',
-      series:[
-        {{key:'TNX', label:'10Y yield · ^TNX', color:'var(--series-1)'}},
-        {{key:'TYX', label:'30Y yield · ^TYX', color:'var(--series-2)'}}
-      ]
+      id:'chart-intraday-30y', ticker:'^TYX', label:'30Y yield', yTitle:'30Y yield (%)'
     }}
   ];
-
-  for (const chart of intradayCharts) {{
-    chart.hidden = new Set();
-    const legend = d3.select('#' + chart.legend);
-    for (const s of chart.series) {{
-      const button = legend.append('button').attr('type','button').attr('aria-pressed','true');
-      button.append('span').attr('class','swatch').style('background',s.color);
-      button.append('span').text(s.label);
-      button.on('click', () => {{
-        if (chart.hidden.has(s.key)) chart.hidden.delete(s.key); else chart.hidden.add(s.key);
-        button.attr('aria-pressed', chart.hidden.has(s.key) ? 'false' : 'true');
-        drawIntradayChart(chart);
-      }});
-    }}
-  }}
 
   function updateIntradayRangeButtons() {{
     document.querySelectorAll('[data-intraday-range]').forEach(button =>
@@ -892,35 +901,6 @@ function initializeIntradayCharts() {{
   const etDateTime = new Intl.DateTimeFormat('en-US', {{timeZone:'America/New_York', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}});
   const etTooltip = new Intl.DateTimeFormat('en-CA', {{timeZone:'America/New_York', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}});
 
-  function splitIntradaySegments(values, key) {{
-    const clean = values.filter(d => finite(d[key]));
-    const segments = [];
-    let segment = [];
-    let previous = null;
-    for (const row of clean) {{
-      if (previous && (row.session_date_et !== previous.session_date_et || row.time - previous.time > 15 * 60 * 1000)) {{
-        if (segment.length) segments.push(segment);
-        segment = [];
-      }}
-      segment.push(row);
-      previous = row;
-    }}
-    if (segment.length) segments.push(segment);
-    return segments;
-  }}
-
-  function interpolateIntraday(values, key, target) {{
-    const clean = values.filter(d => finite(d[key]));
-    if (!clean.length) return null;
-    const index = d3.bisector(d => d.time).left(clean, target);
-    if (index === 0) return Math.abs(clean[0].time - target) <= 10 * 60 * 1000 ? clean[0][key] : null;
-    if (index >= clean.length) return Math.abs(target - clean.at(-1).time) <= 10 * 60 * 1000 ? clean.at(-1)[key] : null;
-    const before = clean[index - 1], after = clean[index];
-    if (target - before.time > 10 * 60 * 1000 || after.time - target > 10 * 60 * 1000) return null;
-    const span = after.time - before.time;
-    return span ? before[key] + (after[key] - before[key]) * ((target - before.time) / span) : before[key];
-  }}
-
   function shiftedIntradayRange(start, end, shiftMs) {{
     let startMs = start.getTime() + shiftMs;
     let endMs = end.getTime() + shiftMs;
@@ -940,14 +920,15 @@ function initializeIntradayCharts() {{
     const margin = {{top:30, right:24, bottom:58, left:width < 430 ? 58 : 70}};
     const innerWidth = width - margin.left - margin.right;
     const innerHeight = height - margin.top - margin.bottom;
-    const visibleSeries = chart.series.filter(s => !chart.hidden.has(s.key));
-    const view = intradayData.filter(d => d.time >= intradayStart && d.time <= intradayEnd);
+    const view = yieldData
+      .filter(d => d.ticker === chart.ticker && d.time >= intradayStart && d.time <= intradayEnd)
+      .filter(d => finite(d.open) && finite(d.high) && finite(d.low) && finite(d.close))
+      .sort((a,b) => a.time-b.time);
     const svg = d3.select(shell).append('svg').attr('viewBox',`0 0 ${{width}} ${{height}}`).attr('data-x-start',intradayStart.toISOString()).attr('data-x-end',intradayEnd.toISOString());
-    svg.append('title').text(chart.id === 'chart-intraday-futures' ? 'One-minute Treasury futures prices around the Jackson Hole speech' : 'One-minute 10-year and 30-year Treasury yields around the Jackson Hole speech');
+    svg.append('title').text(`One-minute OHLC candlesticks for ${{chart.label}} around the Jackson Hole speech`);
     const g = svg.append('g').attr('transform',`translate(${{margin.left}},${{margin.top}})`);
     const x = d3.scaleTime().domain([intradayStart,intradayEnd]).range([0,innerWidth]);
-    let yValues = [];
-    for (const s of visibleSeries) yValues.push(...view.map(d => d[s.key]).filter(finite));
+    let yValues = view.flatMap(d => [d.low,d.high]).filter(finite);
     if (!yValues.length) yValues = [0,1];
     let [yLow,yHigh] = d3.extent(yValues);
     if (yLow === yHigh) {{ yLow -= 0.01; yHigh += 0.01; }}
@@ -961,16 +942,21 @@ function initializeIntradayCharts() {{
     const tickCount = width < 430 ? 3 : Math.min(8,Math.max(4,Math.floor(innerWidth/120)));
     const xFormat = spanHours <= 24 ? etTime.format : etDateTime.format;
     g.append('g').attr('class','axis').attr('transform',`translate(0,${{innerHeight}})`).call(d3.axisBottom(x).ticks(tickCount).tickFormat(xFormat));
-    g.append('g').attr('class','axis').call(d3.axisLeft(y).ticks(6).tickFormat(d => Number(d).toFixed(chart.decimals > 3 ? 2 : 3)));
+    g.append('g').attr('class','axis').call(d3.axisLeft(y).ticks(6).tickFormat(d => Number(d).toFixed(3)));
     g.append('text').attr('class','axis-title').attr('data-axis','x').attr('text-anchor','middle').attr('x',innerWidth/2).attr('y',innerHeight+48).text('Time (ET)');
     g.append('text').attr('class','axis-title').attr('data-axis','y').attr('text-anchor','middle').attr('transform',`translate(${{-50}},${{innerHeight/2}}) rotate(-90)`).text(chart.yTitle);
 
-    const line = key => d3.line().x(d => x(d.time)).y(d => y(d[key]));
-    for (const s of visibleSeries) {{
-      for (const segment of splitIntradaySegments(view,s.key)) {{
-        g.append('path').datum(segment).attr('class','series-line').attr('stroke',s.color).attr('d',line(s.key));
-      }}
-    }}
+    const candleWidth = Math.max(1,Math.min(9,(innerWidth/Math.max(1,view.length))*0.72));
+    const candles = g.append('g').attr('class','candles');
+    candles.selectAll('line').data(view).join('line')
+      .attr('class',d => `candle-wick ${{d.close>d.open?'candle-up':d.close<d.open?'candle-down':'candle-doji'}}`)
+      .attr('x1',d => x(d.time)).attr('x2',d => x(d.time))
+      .attr('y1',d => y(d.high)).attr('y2',d => y(d.low));
+    candles.selectAll('rect').data(view).join('rect')
+      .attr('class',d => `candle-body ${{d.close>d.open?'candle-up':d.close<d.open?'candle-down':'candle-doji'}}`)
+      .attr('x',d => x(d.time)-candleWidth/2).attr('width',candleWidth)
+      .attr('y',d => y(Math.max(d.open,d.close)))
+      .attr('height',d => Math.max(1,Math.abs(y(d.open)-y(d.close))));
 
     if (eventTime >= intradayStart && eventTime <= intradayEnd) {{
       const eventX = x(eventTime);
@@ -1007,17 +993,24 @@ function initializeIntradayCharts() {{
       }}
       const [mx] = d3.pointer(event,overlay.node());
       const date = x.invert(Math.max(0,Math.min(innerWidth,mx)));
-      guide.attr('x1',x(date)).attr('x2',x(date)).style('display',null);
-      markerLayer.selectAll('*').remove(); markerLayer.style('display',null);
-      const rows = [];
-      for (const s of visibleSeries) {{
-        const value = interpolateIntraday(view,s.key,date);
-        if (value === null) continue;
-        markerLayer.append('circle').attr('class','hover-dot').attr('data-chart-hover-marker','').attr('cx',x(date)).attr('cy',y(value)).attr('r',4).attr('fill',s.color);
-        rows.push(`<div class="tooltip-row"><span class="tooltip-dot" style="background:${{s.color}}"></span><span>${{s.label}}</span><span>${{value.toFixed(chart.decimals)}}${{chart.suffix}}</span></div>`);
+      const index = d3.bisector(d => d.time).left(view,date);
+      const candidates = [view[index-1],view[index]].filter(Boolean);
+      const candle = candidates.sort((a,b) => Math.abs(a.time-date)-Math.abs(b.time-date))[0];
+      if (!candle || Math.abs(candle.time-date) > 10*60*1000) {{
+        guide.style('display','none'); markerLayer.style('display','none'); tooltip.style('display','none');
+        return;
       }}
-      tooltip.html(`<strong>${{etTooltip.format(date)}} ET</strong>${{rows.join('')}}`).style('display','block');
-      const localX = margin.left+x(date), tipWidth=250;
+      guide.attr('x1',x(candle.time)).attr('x2',x(candle.time)).style('display',null);
+      markerLayer.selectAll('*').remove(); markerLayer.style('display',null);
+      markerLayer.append('circle').attr('class','hover-dot').attr('cx',x(candle.time)).attr('cy',y(candle.close)).attr('r',4).attr('fill','var(--fg)');
+      const direction = candle.close>candle.open ? 'Up' : candle.close<candle.open ? 'Down' : 'Unchanged';
+      tooltip.html(`<strong>${{etTooltip.format(candle.time)}} ET · ${{chart.label}}</strong>`+
+        `<div>Open: ${{candle.open.toFixed(3)}}%</div>`+
+        `<div>High: ${{candle.high.toFixed(3)}}%</div>`+
+        `<div>Low: ${{candle.low.toFixed(3)}}%</div>`+
+        `<div>Close: ${{candle.close.toFixed(3)}}%</div>`+
+        `<div>Direction: ${{direction}}</div>`).style('display','block');
+      const localX = margin.left+x(candle.time), tipWidth=250;
       tooltip.style('left',`${{Math.min(width-tipWidth-8,Math.max(8,localX+12))}}px`).style('top',`${{margin.top+8}}px`);
     }}).on('pointerup',event => endDrag(event,true))
       .on('pointercancel',event => endDrag(event,false))

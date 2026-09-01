@@ -14,13 +14,22 @@ CME_DIR = ROOT / "data" / "cme_fedwatch"
 SOURCE_URL = "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html"
 TARGET_PATTERN = re.compile(r"^\d+-\d+$")
 CENTRAL_OFFSETS = {timedelta(hours=-5), timedelta(hours=-6)}
+ACQUISITION_METHODS = {
+    "manual_csv": "Validated manual CSV import from the public CME FedWatch table",
+    "browser_assisted": "Validated browser-assisted extraction from the public CME FedWatch table",
+}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate and install a manually exported CME FedWatch probability snapshot."
     )
-    parser.add_argument("--input", required=True, type=Path, help="CSV table copied or exported from CME FedWatch.")
+    parser.add_argument(
+        "--input",
+        required=True,
+        type=Path,
+        help="CSV table copied or exported from CME FedWatch. Relative paths are resolved from the repository root.",
+    )
     parser.add_argument(
         "--current-target",
         required=True,
@@ -30,6 +39,12 @@ def parse_args() -> argparse.Namespace:
         "--snapshot-time",
         required=True,
         help="CME snapshot time as ISO 8601 with its Central-Time UTC offset.",
+    )
+    parser.add_argument(
+        "--acquisition-method",
+        choices=sorted(ACQUISITION_METHODS),
+        default="manual_csv",
+        help="How the source table was acquired before validation.",
     )
     return parser.parse_args()
 
@@ -113,12 +128,21 @@ def write_csv(path: Path, headers: list[str], rows: list[dict[str, str]]) -> Non
     temporary.replace(path)
 
 
+def resolve_input_path(path: Path) -> Path:
+    if path.is_absolute():
+        return path.resolve()
+    return (ROOT / path).resolve()
+
+
 def main() -> None:
     args = parse_args()
     if not TARGET_PATTERN.fullmatch(args.current_target):
         raise ValueError("--current-target must look like 350-375.")
     snapshot = parse_snapshot_time(args.snapshot_time)
-    headers, rows = read_and_validate(args.input.resolve(), args.current_target)
+    input_path = resolve_input_path(args.input)
+    if not input_path.is_file():
+        raise FileNotFoundError(f"CME input CSV not found: {input_path}")
+    headers, rows = read_and_validate(input_path, args.current_target)
     CME_DIR.mkdir(parents=True, exist_ok=True)
 
     timestamp = snapshot.strftime("%Y%m%d_%H%M%S")
@@ -136,7 +160,7 @@ def main() -> None:
         "current_target_bps": args.current_target,
         "units": "Probability percent",
         "meetings": len(rows),
-        "update_method": "Validated manual CSV import from the public CME FedWatch table",
+        "update_method": ACQUISITION_METHODS[args.acquisition_method],
     }
     temporary_metadata = metadata_path.with_suffix(".json.tmp")
     temporary_metadata.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
