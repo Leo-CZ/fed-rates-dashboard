@@ -39,7 +39,7 @@ The first intraday event study covers Chair Kevin Warsh's Jackson Hole keynote a
 - `10Y implied real = DGS10 - T10YIE`
 - `30Y breakeven = DGS30 - DFII30`
 
-Every calculation uses same-date observations. If any required input is missing, the result is `NA`. No interpolation, forward-fill, or other imputation is performed. 
+Every calculation uses same-date observations. If any required input is missing, the result is `NA`. No interpolation, forward-fill, or other imputation is performed.
 
 Breakeven inflation includes inflation expectations plus liquidity and risk premia; it should not be interpreted as a pure inflation forecast.
 
@@ -80,7 +80,7 @@ pwsh -File ./code/refresh_rate_data.ps1
 python ./code/build_rate_dashboard.py
 ```
 
-- On the first run, the refresh downloads DGS2, DGS10, DGS30, T10YIE, DFII10, and DFII30 beginning on `2019-01-01`. 
+- On the first run, the refresh downloads DGS2, DGS10, DGS30, T10YIE, DFII10, and DFII30 beginning on `2019-01-01`.
 - On later runs, each series is requested independently beginning one calendar day after its final stored row.
 
 ### 2. Update CME FedWatch probabilities
@@ -103,7 +103,7 @@ python ./code/download_yahoo_event_data.py
 python ./code/build_rate_dashboard.py
 ```
 
-The downloader retains UTC source time, supplies the corresponding Eastern Time timestamp and session date, and never fills missing minutes. 
+The downloader retains UTC source time, supplies the corresponding Eastern Time timestamp and session date, and never fills missing minutes.
 
 ### Rebuild without downloading
 
