@@ -1,2 +1,2 @@
-pandas>=2.0,<3.0
-tzdata
+pandas==3.0.1
+tzdata==2026.3
